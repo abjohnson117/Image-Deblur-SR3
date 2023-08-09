@@ -5,6 +5,7 @@ from scipy.signal import convolve2d
 from scipy.fftpack import dct
 import torch
 import torch.nn.functional as F
+from torchvision.transforms import GaussianBlur
 
 def prox_op(x,lambd):
     return np.sign(x)*np.maximum(np.abs(x)-lambd,0)
@@ -61,7 +62,7 @@ def blur_operator(org, reshape=True, shape=(9,9), sigma=4, mode="reflect"):
     
     return torch.from_numpy(blurred)
 
-def blur_operator_torch(org, shape=(9,9), sigma=4, mode="reflect"):
+def blur_operator_torch(org, shape=(9,9), sigma=4.0):
     if type(org) != torch.Tensor:
         org = torch.from_numpy(org)
 
@@ -69,18 +70,11 @@ def blur_operator_torch(org, shape=(9,9), sigma=4, mode="reflect"):
         m = int(np.sqrt(org.size(0)))
         org = org.view(m,m)
     
-    # print(org.size())
-    psf = torch.Tensor(fspecial(shape, sigma))
-    psf = psf.unsqueeze(0).unsqueeze(0)
-
-    padding = shape[1] // 2
-    padded_org = F.pad(org, (padding, padding, padding, padding), mode='reflect')
-
-    padded_org = padded_org.unsqueeze(0).unsqueeze(0)
-
-    blurred = F.conv2d(padded_org, psf)
-    blurred = blurred.squeeze()
-    blurred.flatten_()
+    org.unsqueeze_(0)
+    blurrer = GaussianBlur(shape, sigma) #https://pytorch.org/vision/main/generated/torchvision.transforms.GaussianBlur.html
+    blurred = blurrer(org)
+    blurred.squeeze_()
+    blurred = torch.flatten(blurred)
 
     return blurred
 
