@@ -13,6 +13,7 @@ def prox_op(x,lambd):
 
 def prox_op_torch(x,lambd):
     return torch.sign(x) * torch.relu(torch.abs(x) - lambd)
+#TODO: Come up with generic way to find the proximal operator based on the generic function, it should not be hard coded like this.
 
 def adjoint_prox_op(x,lambd):
     return x - prox_op(x,lambd)
@@ -23,6 +24,10 @@ def wavelet_operator_1d(org, mode="reflect"):
     return wav_x, keep
 
 def wavelet_op1d_torch(org, mode="reflect"):
+    """
+    Use pytorch wavelets instead of pywt
+    link: https://pytorch-wavelets.readthedocs.io/en/latest/dwt.html
+    """
     dwt = DWT1DForward(J=2, wave="haar", mode=mode)
     wav_x, coeffs = dwt(org.unsqueeze(0).unsqueeze(0))
     wav_x = wav_x.squeeze().squeeze()
@@ -30,6 +35,10 @@ def wavelet_op1d_torch(org, mode="reflect"):
     return wav_x, coeff_list
 
 def wavelet_inverse_torch(wav_x, coeff_list, mode="reflect"):
+    """
+    Use pytorch wavelets instead of pywt to do inverse transformation
+    link: https://pytorch-wavelets.readthedocs.io/en/latest/dwt.html
+    """
     wav_x = wav_x.unsqueeze(0).unsqueeze(0)
     coeffs = [coeff.unsqueeze(0).unsqueeze(0) for coeff in coeff_list]
     idwt = DWT1DInverse(mode=mode, wave="haar")
@@ -142,14 +151,19 @@ def gen_function(x,b):
     return (torch.linalg.norm(w)**2)
 
 def grad(x, b, fcn):
+    """
+    Uses PyTorch autodifferentiation to compute gradients at every step
+    """
     if type(b) != torch.Tensor:
         b = torch.from_numpy(b)
     if type(x) != torch.Tensor:
         x = torch.from_numpy(x)
     if x.requires_grad == False:
         x.requires_grad_()
+    # w = (x**2).sum()
     w = fcn(x,b)
     w.backward()
+    # x.retain_grad_()
     return x.grad
 
 def adjoint_grad(y, b):

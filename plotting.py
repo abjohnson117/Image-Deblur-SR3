@@ -1,7 +1,8 @@
 from matplotlib import pyplot as plt
 
 def FISTA_plot(y,m):
-    y_fis = y.reshape(m,m, order="F")
+    # y_fis = y.reshape(m,m, order="F")
+    y_fis = y.view(m,m)
     plt.imshow(y_fis,interpolation="nearest",cmap=plt.cm.gray)
     plt.title("Deblurred Image")
 
