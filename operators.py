@@ -6,24 +6,36 @@ from scipy.fftpack import dct
 import torch
 import torch.nn.functional as F
 from torchvision.transforms import GaussianBlur
+from pytorch_wavelets import DWT1DForward, DWT1DInverse
 
 def prox_op(x,lambd):
     return np.sign(x)*np.maximum(np.abs(x)-lambd,0)
 
+def prox_op_torch(x,lambd):
+    return torch.sign(x) * torch.relu(torch.abs(x) - lambd)
+
 def adjoint_prox_op(x,lambd):
     return x - prox_op(x,lambd)
-
-def wavelet_operator(orig,m):
-    coeffs = pywt.wavedec2(orig, wavelet="haar", level=3)
-    wav_x, _ = pywt.coeffs_to_array(coeffs)
-    wav_x = wav_x[0:m,0:m]
-    W = np.reshape(wav_x, (m**2,1))
-    return W
 
 def wavelet_operator_1d(org, mode="reflect"):
     coeffs = pywt.wavedec(org, wavelet="haar", level=2, mode=mode)
     wav_x, keep = pywt.coeffs_to_array(coeffs)
     return wav_x, keep
+
+def wavelet_op1d_torch(org, mode="reflect"):
+    dwt = DWT1DForward(J=2, wave="haar", mode=mode)
+    wav_x, coeffs = dwt(org.unsqueeze(0).unsqueeze(0))
+    wav_x = wav_x.squeeze().squeeze()
+    coeff_list = [coeff.squeeze().squeeze() for coeff in coeffs]
+    return wav_x, coeff_list
+
+def wavelet_inverse_torch(wav_x, coeff_list, mode="reflect"):
+    wav_x = wav_x.unsqueeze(0).unsqueeze(0)
+    coeffs = [coeff.unsqueeze(0).unsqueeze(0) for coeff in coeff_list]
+    idwt = DWT1DInverse(mode=mode, wave="haar")
+    org = idwt((wav_x,coeffs))
+    org = org.squeeze().squeeze()
+    return org
 
 def adjoint_wavelet_operator_1d(wav_x, keep, mode="reflect"):
     coeffs = pywt.array_to_coeffs(wav_x, keep, output_format='wavedec')
@@ -68,12 +80,12 @@ def blur_operator_torch(org, shape=(9,9), sigma=4.0):
 
     if len(org.size()) == 1:
         m = int(np.sqrt(org.size(0)))
-        org = org.view(m,m)
+        org = torch.reshape(org, (m,m))
     
-    org.unsqueeze_(0)
+    org = org.unsqueeze(0)
     blurrer = GaussianBlur(shape, sigma) #https://pytorch.org/vision/main/generated/torchvision.transforms.GaussianBlur.html
     blurred = blurrer(org)
-    blurred.squeeze_()
+    blurred = blurred.squeeze()
     blurred = torch.flatten(blurred)
 
     return blurred
@@ -121,22 +133,22 @@ def evals_blur(psf):
     return np.max(S), S
 
 
-# def grad(x,b):
-#     return (blur_adjoint(blur_operator(x)) - blur_adjoint(b))
+def grad_check(x,b):
+    return (blur_adjoint(blur_operator(x)) - blur_adjoint(b))
 
 def gen_function(x,b):
     Ax = blur_operator_torch(x)
     w = Ax - b
-    return (torch.norm(w)**2)
+    return (torch.linalg.norm(w)**2)
 
-def grad(x, b):
+def grad(x, b, fcn):
     if type(b) != torch.Tensor:
         b = torch.from_numpy(b)
     if type(x) != torch.Tensor:
         x = torch.from_numpy(x)
-    if ~x.requires_grad:
+    if x.requires_grad == False:
         x.requires_grad_()
-    w = gen_function(x,b)
+    w = fcn(x,b)
     w.backward()
     return x.grad
 
