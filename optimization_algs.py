@@ -9,6 +9,7 @@ def FISTA(x,y,b,t,k,max_iter,lam,Linv): #, grad, func, prox
     function_values = []
     while (k <= max_iter):
         k += 1
+        #TODO: Do zero_grad here!!!!!
         x_old = x
         y_old = y
         t_old = t
