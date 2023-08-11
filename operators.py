@@ -28,7 +28,7 @@ def wavelet_op1d_torch(org, mode="reflect"):
     Use pytorch wavelets instead of pywt
     link: https://pytorch-wavelets.readthedocs.io/en/latest/dwt.html
     """
-    dwt = DWT1DForward(J=2, wave="haar", mode=mode)
+    dwt = DWT1DForward(J=3, wave="haar", mode=mode)
     wav_x, coeffs = dwt(org.unsqueeze(0).unsqueeze(0))
     wav_x = wav_x.squeeze().squeeze()
     coeff_list = [coeff.squeeze().squeeze() for coeff in coeffs]
@@ -141,10 +141,6 @@ def evals_blur(psf):
     S = dct(dct(a1, axis=0), axis=1) / dct(dct(e1,axis=0), axis=1)
     return np.max(S), S
 
-
-def grad_check(x,b):
-    return (blur_adjoint(blur_operator(x)) - blur_adjoint(b))
-
 def gen_function(x,b):
     Ax = blur_operator_torch(x)
     w = Ax - b
@@ -160,11 +156,6 @@ def grad(x, b, fcn):
         x = torch.from_numpy(x)
     if x.requires_grad == False:
         x.requires_grad_()
-    # w = (x**2).sum()
     w = fcn(x,b)
     w.backward()
-    # x.retain_grad_()
     return x.grad
-
-def adjoint_grad(y, b):
-    return (blur_adjoint(blur_operator(y)) - blur_adjoint(b))
