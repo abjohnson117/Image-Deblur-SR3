@@ -4,6 +4,9 @@ from operators import grad, wavelet_op1d_torch, prox_op, prox_op_torch, wavelet_
 import time
 
 def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox, f): #, grad, func, prox
+    """
+    Implementing FISTA algorithm described in 
+    """
     start = time.time()
     step_size_list = []
     function_values = []
