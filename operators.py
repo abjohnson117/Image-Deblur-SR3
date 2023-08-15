@@ -99,6 +99,11 @@ def blur_operator_torch(org, shape=(9,9), sigma=4.0):
 
     return blurred
 
+def blur_adjoint_torch():
+    """
+    https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html Look at this link for convolution transpose.
+    I think the idea might be to get the Gaussian Blur kernel from GaussianBlur and use it as the kernel in the convolution transpose.
+    """
 
 def blur_adjoint(org, reshape=True, shape=(9,9), sigma=4, mode="reflect"):
     if reshape:
