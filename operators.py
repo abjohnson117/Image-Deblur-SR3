@@ -4,6 +4,7 @@ from scipy.ndimage import correlate, convolve
 from scipy.signal import convolve2d
 from scipy.fftpack import dct
 import torch
+from torch import nn
 import torch.nn.functional as F
 from torchvision.transforms import GaussianBlur
 from pytorch_wavelets import DWT1DForward, DWT1DInverse
@@ -13,7 +14,6 @@ def prox_op(x,lambd):
 
 def prox_op_torch(x,lambd):
     return torch.sign(x) * torch.relu(torch.abs(x) - lambd)
-#TODO: Come up with generic way to find the proximal operator based on the generic function, it should not be hard coded like this.
 
 def adjoint_prox_op(x,lambd):
     return x - prox_op(x,lambd)
@@ -52,7 +52,7 @@ def adjoint_wavelet_operator_1d(wav_x, keep, mode="reflect"):
     return org
 
 
-def fspecial(shape=(3,3),sigma=0.5):
+def fspecial(shape=(3,3),sigma=0.5, ret_torch=False):
     """
     2D gaussian mask - should give the same result as MATLAB's
     fspecial('gaussian',[shape],[sigma])
@@ -64,6 +64,9 @@ def fspecial(shape=(3,3),sigma=0.5):
     sumh = h.sum()
     if sumh != 0:
         h /= sumh
+    if ret_torch:
+        h = torch.from_numpy(h)
+        h = h.to(torch.float)
     return h
 
 def blur_operator(org, reshape=True, shape=(9,9), sigma=4, mode="reflect"):
@@ -99,11 +102,50 @@ def blur_operator_torch(org, shape=(9,9), sigma=4.0):
 
     return blurred
 
-def blur_adjoint_torch():
+# def blur_operator_torch(org, shape=(9,9), sigma=4.0):
+#     if type(org) != torch.Tensor:
+#         org = torch.from_numpy(org)
+
+#     if len(org.size()) == 1:
+#         m = int(np.sqrt(org.size(0)))
+#         org = torch.reshape(org, (m,m))
+
+#     psf = fspecial(shape, sigma, True)
+#     psf.unsqueeze_(0).unsqueeze_(0)
+#     padding = nn.ReflectionPad2d(4)
+#     org.unsqueeze_(0).unsqueeze_(0)
+#     org_pad = padding(org)
+#     org_pad = org_pad.to(torch.float)
+#     blurred = F.conv2d(org_pad, psf)
+#     blurred = blurred.squeeze()
+#     blurred = torch.flatten(blurred)
+
+#     return blurred
+
+def blur_adjoint_torch(org, shape=(9,9), sigma=4, mode="reflect"):
     """
     https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html Look at this link for convolution transpose.
     I think the idea might be to get the Gaussian Blur kernel from GaussianBlur and use it as the kernel in the convolution transpose.
     """
+    if type(org) != torch.Tensor:
+        org = torch.from_numpy(org)
+
+    if len(org.size()) == 1:
+        m = int(np.sqrt(org.size(0)))
+        org = torch.reshape(org, (m,m))
+
+    psf = fspecial(shape, sigma, True)
+    psf = torch.flip(psf, [0,1])
+    padding = nn.ReflectionPad2d(4)
+    org.unsqueeze_(0).unsqueeze_(0)
+    org_pad = padding(org)
+    org_pad = org_pad.to(torch.float)
+    adjoint_blurred = F.conv2d(org_pad, psf.unsqueeze(0).unsqueeze(0))
+    adjoint_blurred = adjoint_blurred.squeeze()
+    adjoint_blurred = torch.flatten(adjoint_blurred)
+
+    return adjoint_blurred
+
 
 def blur_adjoint(org, reshape=True, shape=(9,9), sigma=4, mode="reflect"):
     if reshape:

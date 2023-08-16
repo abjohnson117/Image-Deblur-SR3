@@ -1,5 +1,6 @@
 import numpy as np
-from operators import prox_op, adjoint_prox_op, wavelet_operator_1d, adjoint_wavelet_operator_1d, blur_operator, blur_adjoint, grad, adjoint_grad
+import torch
+from operators import prox_op, adjoint_prox_op, wavelet_operator_1d, adjoint_wavelet_operator_1d, blur_operator, blur_adjoint, grad, blur_operator_torch, blur_adjoint_torch
 
 def test_prox(x, b, lam,thresh=1e-4):
     if len(x.shape) > 1:
@@ -38,13 +39,17 @@ def test_grad(x,b,thresh=1e-4):
         return False
 
 def test_blur(x,b,thresh=1e-4):
-    if len(x.shape) > 1:
-        x = x.flatten("F")
-    if len(b.shape) > 1:
-        b = b.flatten("F")
-    error = np.dot(blur_operator(x),b) - np.dot(x, blur_adjoint(b))
+    if type(x) != torch.Tensor:
+        x = torch.from_numpy(x)
+    if type(b) != torch.Tensor:
+        b = torch.from_numpy(b)
+    if len(x.size()) > 1:
+        x = torch.flatten(x)
+    if len(b.size()) > 1:
+        b = torch.flatten(b)
+    error = torch.matmul(blur_operator_torch(x),b) - torch.matmul(x, blur_adjoint_torch(b))
     if error < thresh:
         return True
     else:
         print("This test fails")
-        return np.dot(blur_operator(x),b), np.dot(x, blur_adjoint(b)), error
+        return torch.matmul(blur_operator_torch(x),b), torch.matmul(x, blur_adjoint_torch(b)), error
