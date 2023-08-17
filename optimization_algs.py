@@ -3,7 +3,7 @@ import torch
 from operators import grad, wavelet_op1d_torch, wavelet_inverse_torch, blur_operator_torch, blur_adjoint_torch
 import time
 
-def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox, f): #, grad, func, prox
+def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,accelerate): #, grad, func, prox
     """
     Implementing FISTA algorithm described in Fista paper by Beck and Teboulle
     """
@@ -24,9 +24,11 @@ def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox, f): #, grad, func, prox
             c = wavelet_op1d_torch(z)
             d = prox(c[0],lam/Linv)
             x = wavelet_inverse_torch(d,c[1])
-            t = 0.5*(1 + np.sqrt(1 + 4*t_old**2))
-            y = x + (t_old/t)*(x - x_old)
-            # y = x
+            if accelerate:
+                t = 0.5*(1 + np.sqrt(1 + 4*t_old**2))
+                y = x + (t_old/t)*(x - x_old)
+            else:
+                y = x
             step = abs((y-y_old)/Linv)
             max_step = torch.max(step)
             step_size_list.append(max_step)

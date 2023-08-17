@@ -16,6 +16,13 @@ def torch_arranger(x,b):
         b = torch.flatten(b)
     return x,b
 
+def torch_arranger_one(b):
+    if type(b) != torch.Tensor:
+        b = torch.from_numpy(b)
+    if len(b.size()) > 1:
+        b = torch.flatten(b)
+    return b
+
 def test_prox(x, b, lam,thresh=1e-4):
     if len(x.shape) > 1:
         x = x.flatten("F")
@@ -29,48 +36,34 @@ def test_prox(x, b, lam,thresh=1e-4):
         return np.dot(prox_op(x, lam), b), np.dot(x, adjoint_prox_op(b, lam)), error
 
 
-def test_wavelet(x,b,thresh=1e-4):
-    x,b = torch_arranger(x,b)
-    bsss = wavelet_op1d_torch(b)[1]
-    error = torch.matmul(wavelet_op1d_torch(x)[0],b) - torch.matmul(x,wavelet_inverse_torch(b,bsss))
-    if error < thresh:
-        return True
-    else:
-        print("This test fails")
-        return torch.matmul(wavelet_op1d_torch(x)[0],b), torch.matmul(x,wavelet_inverse_torch(b,bsss)), error
+def test_wavelet(b,thresh=1e-4):
+    """
+    Adjoint test for our wavelet operator and its inverse. Since the wavelet transform
+    creates an orthonormal basis, we know that its inverse is its adjoint. Thus, to confirm
+    that the operators pass the adjoint test, we need only see if the inverse function returns
+    something almost identical to the original signal passed in.
+    """
+    b = torch_arranger_one(b)
+    wav_b, bsss = wavelet_op1d_torch(b)
+    wav_b_inv = wavelet_inverse_torch(wav_b, bsss)
+    error = torch.linalg.norm(b - wav_b_inv)
+    assert error < thresh, f"Adjoint test for wavelets failed. The normed error is {error:.6f}"
 
 def test_grad(x,b,thresh=1e-4):
     """
     From the way we are creating and using the grad function from PyTorch AutoDiff, we are not calculating adjoints.
     Instead, we simply compare torch's autodiff output to what we believe it should be as it is hardcoded.
     """
-    if type(x) != torch.Tensor:
-        x = torch.from_numpy(x)
-    if type(b) != torch.Tensor:
-        b = torch.from_numpy(b)
-    if len(x.size()) > 1:
-        x = torch.flatten(x)
-    if len(b.size()) > 1:
-        b = torch.flatten(b)
-    error = torch.linalg.norm(grad(x,b,gen_function) - grad_check(x,b))
-    if error < thresh:
-        return True
-    else:
-        print("This test fails")
-        return grad(x,b,gen_function), grad_check(x,b), error
+    x, b = torch_arranger(x,b)
+    error = torch.linalg.norm(grad(x,b,gen_function) - 2*grad_check(x,b))
+    x.grad.zero_()
+    assert error < thresh, f"Adjoint test for gradient failed. The normed error is {error:.6f}"
 
 def test_blur(x,b,thresh=1e-4):
-    if type(x) != torch.Tensor:
-        x = torch.from_numpy(x)
-    if type(b) != torch.Tensor:
-        b = torch.from_numpy(b)
-    if len(x.size()) > 1:
-        x = torch.flatten(x)
-    if len(b.size()) > 1:
-        b = torch.flatten(b)
+    """
+    This is the unit test for the blur operator. Since blurring is linear, we simply perform a standard
+    adjoint test.
+    """
+    x, b = torch_arranger(x,b)
     error = torch.matmul(blur_operator_torch(x),b) - torch.matmul(x, blur_adjoint_torch(b))
-    if error < thresh:
-        return True
-    else:
-        print("This test fails")
-        return torch.matmul(blur_operator_torch(x),b), torch.matmul(x, blur_adjoint_torch(b)), error
+    assert error < thresh, f"Adjoint test for blur operator failed. The error is {error:.6f}"
