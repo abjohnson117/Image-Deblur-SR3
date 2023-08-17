@@ -102,26 +102,6 @@ def blur_operator_torch(org, shape=(9,9), sigma=4.0):
 
     return blurred
 
-# def blur_operator_torch(org, shape=(9,9), sigma=4.0):
-#     if type(org) != torch.Tensor:
-#         org = torch.from_numpy(org)
-
-#     if len(org.size()) == 1:
-#         m = int(np.sqrt(org.size(0)))
-#         org = torch.reshape(org, (m,m))
-
-#     psf = fspecial(shape, sigma, True)
-#     psf.unsqueeze_(0).unsqueeze_(0)
-#     padding = nn.ReflectionPad2d(4)
-#     org.unsqueeze_(0).unsqueeze_(0)
-#     org_pad = padding(org)
-#     org_pad = org_pad.to(torch.float)
-#     blurred = F.conv2d(org_pad, psf)
-#     blurred = blurred.squeeze()
-#     blurred = torch.flatten(blurred)
-
-#     return blurred
-
 def blur_adjoint_torch(org, shape=(9,9), sigma=4, mode="reflect"):
     """
     https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html Look at this link for convolution transpose.
@@ -145,7 +125,6 @@ def blur_adjoint_torch(org, shape=(9,9), sigma=4, mode="reflect"):
     adjoint_blurred = torch.flatten(adjoint_blurred)
 
     return adjoint_blurred
-
 
 def blur_adjoint(org, reshape=True, shape=(9,9), sigma=4, mode="reflect"):
     if reshape:

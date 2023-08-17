@@ -1,11 +1,11 @@
 import numpy as np
 import torch
-from operators import grad, wavelet_op1d_torch, prox_op, prox_op_torch, wavelet_inverse_torch, blur_operator, gen_function
+from operators import grad, wavelet_op1d_torch, wavelet_inverse_torch, blur_operator_torch, blur_adjoint_torch
 import time
 
 def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox, f): #, grad, func, prox
     """
-    Implementing FISTA algorithm described in 
+    Implementing FISTA algorithm described in Fista paper by Beck and Teboulle
     """
     start = time.time()
     step_size_list = []
@@ -30,10 +30,35 @@ def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox, f): #, grad, func, prox
             step = abs((y-y_old)/Linv)
             max_step = torch.max(step)
             step_size_list.append(max_step)
-            function_values.append((gen_function(y,b) + lam*torch.linalg.norm(c[0], ord=1)))
+            function_values.append((f(y,b) + lam*torch.linalg.norm(c[0], ord=1)))
         y_old.grad.zero_()
     end = time.time()
-    return y, start, end, step_size_list, function_values, k
+    return y, start, end, step_size_list, function_values
 
-def FISTA_SR3(x,y,b,t,k,max_iter,lam,eta):
-    return 0
+def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,m):
+    start = time.time()
+    step_size_list = []
+    # function_values = []
+    atb = blur_adjoint_torch(b)
+    while (k <= max_iter):
+        k +=1
+        v_old = v
+        w_old = w
+        t_old = t
+        z = atb + kappa*w_old
+        # meta = blur_adjoint_torch(blur_operator_torch(z))
+        # meta_inv = torch.linalg.inv(meta.view(m,m))
+        x = 1/blur_adjoint_torch(blur_operator_torch(z)) + (1/kappa)*z
+        # meta_inv = torch.flatten(meta_inv)
+        # x = meta_inv + (1/kappa)*z
+        c = wavelet_op1d_torch(x)
+        y = prox(c[0],eta)
+        v = wavelet_inverse_torch(y,c[1])
+        t = 0.5*(1 + np.sqrt(1 + 4*t_old**2))
+        w = v + (t_old/t)*(v - v_old)
+        step = abs((w-w_old)*kappa)
+        max_step = torch.max(step)
+        step_size_list.append(max_step)
+    end = time.time()
+
+    return w, start, end, step_size_list
