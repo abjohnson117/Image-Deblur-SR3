@@ -104,8 +104,7 @@ def blur_operator_torch(org, shape=(9,9), sigma=4.0):
 
 def blur_adjoint_torch(org, shape=(9,9), sigma=4, mode="reflect"):
     """
-    https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html Look at this link for convolution transpose.
-    I think the idea might be to get the Gaussian Blur kernel from GaussianBlur and use it as the kernel in the convolution transpose.
+    The transpose will come just from completely flipping the convolution kernel, and then performing the convolution operation.
     """
     if type(org) != torch.Tensor:
         org = torch.from_numpy(org)
@@ -185,3 +184,10 @@ def grad(x, b, fcn):
     w = fcn(x,b)
     w.backward()
     return x.grad
+
+def grad_check(x,b):
+    """
+    This is a unit test for the grad() function defined directly above. We simply hardcode what the gradient of
+    gen_function() (also defined above) is going to be
+    """
+    return blur_adjoint_torch(blur_operator_torch(x) - b)
