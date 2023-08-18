@@ -102,7 +102,7 @@ def blur_operator_torch(org, shape=(9,9), sigma=4.0):
 
     return blurred
 
-def blur_adjoint_torch(org, shape=(9,9), sigma=4, mode="reflect"):
+def blur_adjoint_torch(org, shape=(9,9), sigma=4):
     """
     The transpose will come just from completely flipping the convolution kernel, and then performing the convolution operation.
     """
