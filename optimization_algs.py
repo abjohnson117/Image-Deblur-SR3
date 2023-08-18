@@ -50,7 +50,7 @@ def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,m):
         z = atb + kappa*w_old
         # meta = blur_adjoint_torch(blur_operator_torch(z))
         # meta_inv = torch.linalg.inv(meta.view(m,m))
-        x = 1/blur_adjoint_torch(blur_operator_torch(z)) + (1/kappa)*z
+        x = blur_adjoint_torch(blur_operator_torch(z)) + (1/kappa)*z
         # meta_inv = torch.flatten(meta_inv)
         # x = meta_inv + (1/kappa)*z
         c = wavelet_op1d_torch(x)
