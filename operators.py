@@ -169,7 +169,7 @@ def evals_blur(psf):
 def gen_function(x,b):
     Ax = blur_operator_torch(x)
     w = Ax - b
-    return (torch.linalg.norm(w)**2)
+    return (torch.sum(w**2))
 
 def grad(x, b, fcn):
     """
@@ -190,4 +190,4 @@ def grad_check(x,b):
     This is a unit test for the grad() function defined directly above. We simply hardcode what the gradient of
     gen_function() (also defined above) is going to be
     """
-    return blur_adjoint_torch(blur_operator_torch(x) - b)
+    return 2.0*blur_adjoint_torch(blur_operator_torch(x) - b)

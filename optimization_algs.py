@@ -21,7 +21,7 @@ def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,accelerate): #, grad, func, prox
             # are those pertaining to my grad() function. Everything else we don't want in our computation graph, and hence,
             # it's inside the with torch.no_grad() block.
             z = y_old - Linv*grd
-            c = wavelet_op1d_torch(z)
+            c = wavelet_op1d_torch(z) # include the wavelet operation in the prox
             d = prox(c[0],lam/Linv)
             x = wavelet_inverse_torch(d,c[1])
             if accelerate:
@@ -32,7 +32,7 @@ def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,accelerate): #, grad, func, prox
             step = abs((y-y_old)/Linv)
             max_step = torch.max(step)
             step_size_list.append(max_step)
-            function_values.append((f(y,b) + lam*torch.linalg.norm(c[0], ord=1)))
+            function_values.append((f(y,b) + lam*torch.linalg.norm(c[0], ord=1))) # Come up with g function as well
         y_old.grad.zero_()
     end = time.time()
     return y, start, end, step_size_list, function_values

@@ -49,13 +49,13 @@ def test_wavelet(b,thresh=1e-4):
     error = torch.linalg.norm(b - wav_b_inv)
     assert error < thresh, f"Adjoint test for wavelets failed. The normed error is {error:.6f}"
 
-def test_grad(x,b,thresh=1e-4):
+def test_grad(x,b,fcn,thresh=1e-4):
     """
     From the way we are creating and using the grad function from PyTorch AutoDiff, we are not calculating adjoints.
     Instead, we simply compare torch's autodiff output to what we believe it should be as it is hardcoded.
     """
     x, b = torch_arranger(x,b)
-    error = torch.linalg.norm(grad(x,b,gen_function) - 2*grad_check(x,b))
+    error = torch.linalg.norm(grad(x,b,fcn) - grad_check(x,b))
     x.grad.zero_()
     assert error < thresh, f"Adjoint test for gradient failed. The normed error is {error:.6f}"
 
