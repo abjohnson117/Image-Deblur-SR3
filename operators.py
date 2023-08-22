@@ -69,24 +69,60 @@ def fspecial(shape=(3,3),sigma=0.5, ret_torch=False):
         h = h.to(torch.float)
     return h
 
-def blur_operator(org, reshape=True, shape=(9,9), sigma=4, mode="reflect"):
-    # if type(org) == torch.Tensor:
-    #     org = org.numpy()
-    if reshape:
-        m = int(np.sqrt(org.shape[0]))
-        org = np.reshape(org, (m,m), order="F")
-        # org = org.view(m,m)
+def fspecial_1d(kernel_size=3, sigma=0.5, ret_torch=False):
+    """
+    1D gaussian mask - equivalent to MATLAB's fspecial('gaussian', [shape], [sigma])
+    """
+    x = np.arange(-(kernel_size - 1) / 2, (kernel_size + 1) / 2)
+    h = np.exp(-x**2 / (2 * sigma**2))
+    h[h < np.finfo(h.dtype).eps * h.max()] = 0
+    sumh = h.sum()
+    if sumh != 0:
+        h /= sumh
+    if ret_torch:
+        h = torch.from_numpy(h)
+        h = h.to(torch.float)
+    return h
 
-    psf = fspecial(shape,sigma)
-    blurred = correlate(org, psf, mode=mode)
-    # blurred += np.random.normal(0,1e-4,size=(m,m)) #TODO: Add this separately
-    blurred = blurred.T
-    if reshape:
-        blurred = blurred.flatten("F")
-    
-    return torch.from_numpy(blurred)
+def blur_operator_torch_1d(org, shape=9, sigma=4.0):
+    if type(org) != torch.Tensor:
+        org = torch.from_numpy(org)
 
-def blur_operator_torch(org, shape=(9,9), sigma=4.0):
+    if len(org.size()) > 1:
+        org = org.view(-1)
+
+    psf = fspecial_1d(shape,sigma)
+    padding = nn.ReflectionPad1d(shape // 2)
+    org = org.unsqueeze(0)
+    org_pad = padding(org)
+    org_pad = org_pad.to(torch.float)
+    blurred = F.conv1d(org_pad, psf.unsqueeze(0).unsqueeze(0))
+    blurred = blurred.squeeze()
+
+    return blurred 
+
+def blur_adjoint_torch_1d(org, shape=9, sigma=4):
+    """
+    The transpose will come just from completely flipping the convolution kernel, and then performing the convolution operation.
+    """
+    if type(org) != torch.Tensor:
+        org = torch.from_numpy(org)
+
+    if len(org.size()) > 1:
+        org = org.view(-1)
+
+    psf = fspecial_1d(shape, sigma)
+    psf = torch.flip(psf, [0])
+    padding = nn.ReflectionPad1d(shape // 2)
+    org = org.unsqueeze(0)
+    org_pad = padding(org)
+    org_pad = org_pad.to(torch.float)
+    adjoint_blurred = F.conv1d(org_pad, psf.unsqueeze(0).unsqueeze(0))
+    adjoint_blurred = adjoint_blurred.squeeze()
+
+    return adjoint_blurred
+
+def blur_operator_torch(org, shape=(9,9), sigma=4.0, transpose=False):
     if type(org) != torch.Tensor:
         org = torch.from_numpy(org)
 
@@ -98,9 +134,29 @@ def blur_operator_torch(org, shape=(9,9), sigma=4.0):
     blurrer = GaussianBlur(shape, sigma) #https://pytorch.org/vision/main/generated/torchvision.transforms.GaussianBlur.html
     blurred = blurrer(org)
     blurred = blurred.squeeze()
+    if transpose:
+        blurred = blurred.T
     blurred = torch.flatten(blurred)
 
     return blurred
+# def blur_operator_torch(org, shape=(9,9), sigma=4.0):
+#     if type(org) != torch.Tensor:
+#         org = torch.from_numpy(org)
+
+#     if len(org.size()) == 1:
+#         m = int(np.sqrt(org.size(0)))
+#         org = torch.reshape(org, (m,m))
+
+#     psf = fspecial(shape,sigma,True)
+#     padding = nn.ReflectionPad2d(4)
+#     org = org.unsqueeze(0).unsqueeze(0)
+#     org_pad = padding(org)
+#     org_pad = org_pad.to(torch.float)
+#     blurred = F.conv2d(org_pad, psf.unsqueeze(0).unsqueeze(0))
+#     blurred = blurred.squeeze()
+#     blurred = torch.flatten(blurred)
+
+#     return blurred 
 
 def blur_adjoint_torch(org, shape=(9,9), sigma=4):
     """
@@ -114,7 +170,8 @@ def blur_adjoint_torch(org, shape=(9,9), sigma=4):
         org = torch.reshape(org, (m,m))
 
     psf = fspecial(shape, sigma, True)
-    psf = torch.flip(psf, [0,1])
+    psf = torch.roll(torch.flip(psf, [0,1]),shifts=(1,1))
+    # psf = torch.flip(psf, [0,1])
     padding = nn.ReflectionPad2d(4)
     org.unsqueeze_(0).unsqueeze_(0)
     org_pad = padding(org)
@@ -190,4 +247,5 @@ def grad_check(x,b):
     This is a unit test for the grad() function defined directly above. We simply hardcode what the gradient of
     gen_function() (also defined above) is going to be
     """
-    return 2.0*blur_adjoint_torch(blur_operator_torch(x) - b)
+    return 2.0*(blur_adjoint_torch(blur_operator_torch(x)) - blur_adjoint_torch(b))
+    # return 2.0*blur_adjoint_torch(blur_operator_torch(x) - b)

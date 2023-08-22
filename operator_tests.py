@@ -65,5 +65,5 @@ def test_blur(x,b,thresh=1e-4):
     adjoint test.
     """
     x, b = torch_arranger(x,b)
-    error = torch.matmul(blur_operator_torch(x),b) - torch.matmul(x, blur_adjoint_torch(b))
+    error = abs(torch.matmul(blur_operator_torch(x),b) - torch.matmul(x, blur_adjoint_torch(b)))
     assert error < thresh, f"Adjoint test for blur operator failed. The error is {error:.6f}"
