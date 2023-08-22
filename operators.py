@@ -170,10 +170,10 @@ def blur_adjoint_torch(org, shape=(9,9), sigma=4):
         org = torch.reshape(org, (m,m))
 
     psf = fspecial(shape, sigma, True)
-    psf = torch.roll(torch.flip(psf, [0,1]),shifts=(1,1))
-    # psf = torch.flip(psf, [0,1])
+    # psf = torch.roll(torch.flip(psf, [0,1]),shifts=(1,1))
+    psf = torch.flip(psf, [0,1])
     padding = nn.ReflectionPad2d(4)
-    org.unsqueeze_(0).unsqueeze_(0)
+    org = org.unsqueeze(0).unsqueeze(0)
     org_pad = padding(org)
     org_pad = org_pad.to(torch.float)
     adjoint_blurred = F.conv2d(org_pad, psf.unsqueeze(0).unsqueeze(0))
