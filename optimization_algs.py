@@ -37,22 +37,20 @@ def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,accelerate): #, grad, func, prox
     end = time.time()
     return y, start, end, step_size_list, function_values
 
-def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,m):
+def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,m,it_num=20):
     start = time.time()
     step_size_list = []
     # function_values = []
     atb = blur_adjoint_torch(b)
+    x_init = torch.zeros(m**2)
+    # print(x_init)
     while (k <= max_iter):
         k +=1
         v_old = v
         w_old = w
         t_old = t
         z = atb + kappa*w_old
-        # meta = blur_adjoint_torch(blur_operator_torch(z))
-        # meta_inv = torch.linalg.inv(meta.view(m,m))
-        x = blur_adjoint_torch(blur_operator_torch(z)) + (1/kappa)*z
-        # meta_inv = torch.flatten(meta_inv)
-        # x = meta_inv + (1/kappa)*z
+        x = conjgrad(H_kappa,x_init,z,it_num,kappa)
         c = wavelet_op1d_torch(x)
         y = prox(c[0],eta)
         v = wavelet_inverse_torch(y,c[1])
@@ -64,3 +62,26 @@ def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,m):
     end = time.time()
 
     return w, start, end, step_size_list
+
+def conjgrad(op, b, x, it_num, kap):
+    r = b - op(kap,x)
+    p = r
+    rsold = torch.dot(r, r)  # Calculate dot product for rsold
+
+    for _ in range(it_num):
+        Ap = op(kap,p)
+        alpha = rsold / torch.dot(p, Ap)  # Calculate dot product for alpha
+        x = x + alpha * p
+        r = r - alpha * Ap
+        rsnew = torch.dot(r, r)  # Calculate dot product for rsnew
+
+        if torch.sqrt(rsnew) < 1e-10:
+            break
+
+        p = r + (rsnew / rsold) * p
+        rsold = rsnew
+
+    return x
+
+def H_kappa(kap, x):
+    return blur_adjoint_torch(blur_operator_torch(x)) + kap*x

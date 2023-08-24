@@ -133,6 +133,8 @@ def blur_adjoint_torch(org, reshape=True, shape=(9, 9), sigma=4, mode="reflect")
     if len(org.size()) == 1:
         m = int(np.sqrt(org.size(0)))
         org = torch.reshape(org, (m,m))
+
+    #https://dsp.stackexchange.com/questions/2340/meaning-of-the-transpose-of-convolution
     
     psf = fspecial(shape, sigma, ret_torch=True)
     psf = torch.flip(psf, [0, 1])
