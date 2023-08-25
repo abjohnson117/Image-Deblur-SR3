@@ -8,6 +8,7 @@ def FISTA_plot(y,m,title):
 def function_vals_plot(max_iter, function_vals, title):
     max_iter_list = list(range(max_iter))
     plt.plot(max_iter_list,function_vals[:max_iter],label=title)
+    plt.yscale("log")
     plt.xlabel("Iteration")
     plt.ylabel("Function Value")
     plt.legend(loc="upper right")

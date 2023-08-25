@@ -108,18 +108,18 @@ def fspecial(shape=(3,3),sigma=0.5, ret_torch=False):
 #     blurred = torch.flatten(blurred)
 
 #     return blurred 
-def blur_operator_torch(org, reshape=True, shape=(9, 9), sigma=4, mode="reflect"):
+def blur_operator_torch(org, reshape=True, shape=(9, 9), sigma=8, mode="reflect"):
     if type(org) != torch.Tensor:
         org = torch.from_numpy(org)
 
     if len(org.size()) == 1:
         m = int(np.sqrt(org.size(0)))
         org = torch.reshape(org, (m,m))
-    #TODO: I have this code running now, and it works great, but it doesn't take into accound the reflective bc's.
+    #TODO: I have this code running now, and it works great, but it doesn't take into account the reflective bc's.
     # Why is this the case?
     
     psf = fspecial(shape, sigma, ret_torch=True)
-    pad_size = shape[0] // 2
+    # pad_size = shape[0] // 2
     # org_padded = reflect_padding(org.unsqueeze(0).unsqueeze(0), pad_size)
     blurred = F.conv2d(org.unsqueeze(0).unsqueeze(0), psf.unsqueeze(0).unsqueeze(0),padding="same")
     blurred = blurred.squeeze()
@@ -129,7 +129,7 @@ def blur_operator_torch(org, reshape=True, shape=(9, 9), sigma=4, mode="reflect"
     
     return blurred
 
-def blur_adjoint_torch(org, reshape=True, shape=(9, 9), sigma=4, mode="reflect"):
+def blur_adjoint_torch(org, reshape=True, shape=(9, 9), sigma=8, mode="reflect"):
     if type(org) != torch.Tensor:
         org = torch.from_numpy(org)
 

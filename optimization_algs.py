@@ -35,14 +35,14 @@ def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,g,accelerate): #, grad, func, prox
     end = time.time()
     return y, start, end, step_size_list, function_values
 
-def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,lam,m,it_num=20,accelerate=True):
+def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,lam,m,sr3_function,it_num=20,accelerate=True):
     """
     Implenting SR3 with Fista acceleration just as in J33 paper. No TV regularization,
     we regularize with 1-norm with C = I.
     """
     start = time.time()
     step_size_list = []
-    # function_values = []
+    function_values = []
     atb = blur_adjoint_torch(b)
     x_init = torch.zeros(m**2)
     while (k <= max_iter):
@@ -60,10 +60,12 @@ def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,lam,m,it_num=20,accelerate=True)
             w = v
         step = abs((w-w_old)*kappa)
         max_step = torch.max(step)
+        function_values.append(sr3_function(x,w,b,eta))
         step_size_list.append(max_step)
     end = time.time()
 
-    return x,w, start, end, step_size_list
+    return x,w, start, end, step_size_list, function_values
+
 
 def conjgrad(op, b, x, it_num, kap):
     """
