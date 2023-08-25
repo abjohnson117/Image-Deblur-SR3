@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from operators import grad, wavelet_op1d_torch, wavelet_inverse_torch, blur_operator_torch, blur_adjoint_torch
+from operators import grad, blur_operator_torch, blur_adjoint_torch
 import time
 
 def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,g,accelerate): #, grad, func, prox
@@ -30,12 +30,16 @@ def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,g,accelerate): #, grad, func, prox
             step = abs((y-y_old)/Linv)
             max_step = torch.max(step)
             step_size_list.append(max_step)
-            function_values.append((f(y,b) + g(lam,x))) # Come up with g function as well
+            function_values.append((f(y,b) + g(lam,x)))
         y_old.grad.zero_()
     end = time.time()
     return y, start, end, step_size_list, function_values
 
 def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,lam,m,it_num=20,accelerate=True):
+    """
+    Implenting SR3 with Fista acceleration just as in J33 paper. No TV regularization,
+    we regularize with 1-norm with C = I.
+    """
     start = time.time()
     step_size_list = []
     # function_values = []
@@ -46,12 +50,8 @@ def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,lam,m,it_num=20,accelerate=True)
         v_old = v
         w_old = w
         t_old = t
-        # x_old = x
         z = atb + kappa*w_old
         x = conjgrad(H_kappa,z,x_init,it_num,kappa)
-        # c = wavelet_op1d_torch(x)
-        # y = prox(c[0],eta*lam)
-        # v = wavelet_inverse_torch(y,c[1])
         v = prox(x,eta*lam)
         if accelerate:
             t = 0.5*(1 + np.sqrt(1 + 4*(t_old**2)))
@@ -66,6 +66,9 @@ def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,lam,m,it_num=20,accelerate=True)
     return x,w, start, end, step_size_list
 
 def conjgrad(op, b, x, it_num, kap):
+    """
+    Simple CG-algorithm implemented in PyTorch
+    """
     r = b - op(kap,x)
     p = r
     rsold = torch.dot(r, r)  # Calculate dot product for rsold
@@ -86,4 +89,8 @@ def conjgrad(op, b, x, it_num, kap):
     return x
 
 def H_kappa(kap, x):
+    """
+    The H_k matrix operation defined in J33 in the context of image deblurring
+    with blur and blur_adjoint operations defined for PyTorch tensors.
+    """
     return blur_adjoint_torch(blur_operator_torch(x)) + kap*x
