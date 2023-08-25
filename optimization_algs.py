@@ -3,7 +3,7 @@ import torch
 from operators import grad, wavelet_op1d_torch, wavelet_inverse_torch, blur_operator_torch, blur_adjoint_torch
 import time
 
-def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,accelerate): #, grad, func, prox
+def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,g,accelerate): #, grad, func, prox
     """
     Implementing FISTA algorithm described in Fista paper by Beck and Teboulle
     """
@@ -21,9 +21,7 @@ def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,accelerate): #, grad, func, prox
             # are those pertaining to my grad() function. Everything else we don't want in our computation graph, and hence,
             # it's inside the with torch.no_grad() block.
             z = y_old - Linv*grd
-            c = wavelet_op1d_torch(z) # include the wavelet operation in the prox
-            d = prox(c[0],lam/Linv)
-            x = wavelet_inverse_torch(d,c[1])
+            x = prox(z,lam/Linv)
             if accelerate:
                 t = 0.5*(1 + np.sqrt(1 + 4*t_old**2))
                 y = x + (t_old/t)*(x - x_old)
@@ -32,37 +30,40 @@ def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,accelerate): #, grad, func, prox
             step = abs((y-y_old)/Linv)
             max_step = torch.max(step)
             step_size_list.append(max_step)
-            function_values.append((f(y,b) + lam*torch.linalg.norm(c[0], ord=1))) # Come up with g function as well
+            function_values.append((f(y,b) + g(lam,x))) # Come up with g function as well
         y_old.grad.zero_()
     end = time.time()
     return y, start, end, step_size_list, function_values
 
-def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,m,it_num=20):
+def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,lam,m,it_num=20,accelerate=True):
     start = time.time()
     step_size_list = []
     # function_values = []
     atb = blur_adjoint_torch(b)
     x_init = torch.zeros(m**2)
-    # print(x_init)
     while (k <= max_iter):
-        k +=1
+        k += 1
         v_old = v
         w_old = w
         t_old = t
-        
+        # x_old = x
         z = atb + kappa*w_old
-        x = conjgrad(H_kappa,x_init,z,it_num,kappa)
-        c = wavelet_op1d_torch(x)
-        y = prox(c[0],eta)
-        v = wavelet_inverse_torch(y,c[1])
-        t = 0.5*(1 + np.sqrt(1 + 4*t_old**2))
-        w = v + (t_old/t)*(v - v_old)
+        x = conjgrad(H_kappa,z,x_init,it_num,kappa)
+        # c = wavelet_op1d_torch(x)
+        # y = prox(c[0],eta*lam)
+        # v = wavelet_inverse_torch(y,c[1])
+        v = prox(x,eta*lam)
+        if accelerate:
+            t = 0.5*(1 + np.sqrt(1 + 4*(t_old**2)))
+            w = v + (t_old/t)*(v - v_old)
+        else:
+            w = v
         step = abs((w-w_old)*kappa)
         max_step = torch.max(step)
         step_size_list.append(max_step)
     end = time.time()
 
-    return w, start, end, step_size_list
+    return x,w, start, end, step_size_list
 
 def conjgrad(op, b, x, it_num, kap):
     r = b - op(kap,x)

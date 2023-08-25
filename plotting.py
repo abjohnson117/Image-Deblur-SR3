@@ -18,5 +18,6 @@ def step_size_plot(max_iter, step_size, title):
     plt.plot(max_iter_list,step_size[:max_iter],label=title)
     plt.xlabel("Iteration")
     plt.ylabel("Step Size")
+    plt.yscale("log")
     plt.legend(loc="upper right")
     plt.title("Step size plot: " + title)

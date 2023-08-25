@@ -13,7 +13,10 @@ def prox_op(x,lambd):
     return np.sign(x)*np.maximum(np.abs(x)-lambd,0)
 
 def prox_op_torch(x,lambd):
-    return torch.sign(x) * torch.relu(torch.abs(x) - lambd)
+    c = wavelet_op1d_torch(x)
+    d = torch.sign(c[0]) * torch.relu(torch.abs(c[0]) - lambd)
+    e = wavelet_inverse_torch(d,c[1])
+    return e
 
 def adjoint_prox_op(x,lambd):
     return x - prox_op(x,lambd)
