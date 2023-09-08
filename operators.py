@@ -217,7 +217,7 @@ def dctshift_torch(psf):
     """Taken from Deblurring Images to compute first column of blur operator matrix A"""
     center = (psf.size(0) // 2, psf.size(1) // 2)
     m, n = psf.size(0), psf.size(1)
-    i, j = center[0], center[1]
+    i, j = int(center[0]), int(center[1])
     k = min([i-1,m-i,j-1,n-j])
 
     PP = psf[i-(k+1):i+(k),j-(k+1):j+(k)]

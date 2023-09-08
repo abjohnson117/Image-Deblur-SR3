@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-from operators import grad, blur_operator_torch, blur_adjoint_torch
+from torch_dct import dct_2d, idct_2d
+from operators import grad, blur_operator_torch, blur_adjoint_torch, evals_blur
 import time
 
 def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,g,accelerate): #, grad, func, prox
@@ -35,7 +36,7 @@ def FISTA(x,y,b,t,k,max_iter,lam,Linv,prox,f,g,accelerate): #, grad, func, prox
     end = time.time()
     return y, start, end, step_size_list, function_values
 
-def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,lam,m,sr3_function,it_num=20,accelerate=True):
+def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,lam,m,sr3_function,it_num=20,accelerate=True,reflexive=True):
     """
     Implenting SR3 with Fista acceleration just as in J33 paper. No TV regularization,
     we regularize with 1-norm with C = I.
@@ -45,13 +46,42 @@ def FISTA_SR3(w,v,b,t,k,max_iter,eta,prox,kappa,lam,m,sr3_function,it_num=20,acc
     function_values = []
     atb = blur_adjoint_torch(b)
     x_init = torch.zeros(m**2)
+    if reflexive:
+        S = evals_blur(ret_torch=True)[1]
+        S = S**2
+        S = 1/S
+        S = S + eta
+        D = 1/S
+        D = torch.diag(D)
+        print(D.size())
+
+        def H_kappa(eta, D_inv, x):
+            """
+            The H_k matrix operation defined in J33, simplified by reflexive
+            and/or periodic boundary conditions.
+            """
+            if len(x.size()) == 1:
+                x = torch.reshape(x, (m,m))
+            return eta*x - (eta**2)*(idct_2d(torch.matmul(D_inv,dct_2d(x))))
+
+    if reflexive == False:
+        def H_kappa(kap, x):
+            """
+            The H_k matrix operation defined in J33 in the context of image deblurring
+            with blur and blur_adjoint operations defined for PyTorch tensors.
+            """
+            return blur_adjoint_torch(blur_operator_torch(x)) + kap*x
+
     while (k <= max_iter):
         k += 1
         v_old = v
         w_old = w
         t_old = t
         z = atb + kappa*w_old
-        x = conjgrad(H_kappa,z,x_init,it_num,kappa)
+        if reflexive:
+            x = H_kappa(eta,D,z)
+        if reflexive == False:
+            x = conjgrad(H_kappa,z,x_init,it_num,kappa)
         v = prox(x,eta*lam)
         if accelerate:
             t = 0.5*(1 + np.sqrt(1 + 4*(t_old**2)))
@@ -89,10 +119,3 @@ def conjgrad(op, b, x, it_num, kap):
         rsold = rsnew
 
     return x
-
-def H_kappa(kap, x):
-    """
-    The H_k matrix operation defined in J33 in the context of image deblurring
-    with blur and blur_adjoint operations defined for PyTorch tensors.
-    """
-    return blur_adjoint_torch(blur_operator_torch(x)) + kap*x
